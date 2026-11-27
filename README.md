@@ -11,24 +11,23 @@ shader.
 
 ## Demos
 
-<!--
-  Inline players: GitHub only shows a playable video (with sound) in a README for videos
-  uploaded through GitHub itself. To turn each link below into a player: edit this README on
-  github.com, drag the matching file from demos/web/ into the editor, and replace the link
-  line with the https://github.com/user-attachments/assets/... URL GitHub inserts.
--->
-
 ### Picking a car
 
-[▶ Watch: picking a car (with sound)]([demos/web/pick-a-car.mp4](https://github.com/emilyahmad/drifting-simulator/blob/main/demos/web/pick-a-car.mp4))
+<video src="https://raw.githubusercontent.com/emilyahmad/drifting-simulator/main/demos/web/pick-a-car.mp4" controls width="100%"></video>
+
+[▶ Watch: picking a car (with sound)](demos/web/pick-a-car.mp4)
 
 ### Drifting: chase camera into the cockpit
 
-[▶ Watch: a long drift, switching from the chase camera to the in-car view (with sound)]([demos/web/nancy2.mp4](https://github.com/emilyahmad/drifting-simulator/blob/main/demos/web/nancy2.mp4))
+<video src="https://raw.githubusercontent.com/emilyahmad/drifting-simulator/main/demos/web/nancy2.mp4" controls width="100%"></video>
+
+[▶ Watch: a long drift, switching from the chase camera to the in-car view (with sound)](demos/web/nancy2.mp4)
 
 ### Driving from the cockpit
 
-[▶ Watch: cruising across the desert in the in-car view (with sound)]([demos/web/borderline.mp4](https://github.com/emilyahmad/drifting-simulator/blob/main/demos/web/borderline.mp4))
+<video src="https://raw.githubusercontent.com/emilyahmad/drifting-simulator/main/demos/web/borderline.mp4" controls width="100%"></video>
+
+[▶ Watch: cruising across the desert in the in-car view (with sound)](demos/web/borderline.mp4)
 
 ## Features
 
