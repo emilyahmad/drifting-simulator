@@ -10,22 +10,23 @@ const GROUND_Y := -0.83      # car-local height of the ground at rest suspension
 
 const CREDIT := "\"PS2 car pack\" (https://skfb.ly/pHUTV) by the soppy prisma models .- is licensed under Creative Commons Attribution (http://creativecommons.org/licenses/by/4.0/). Models re-scaled and re-shaded."
 
-## "glow": optional neon underglow colour (or "police" for flashing red/blue).
+## "glow": LED underglow colour, a bright version of each car's paint (measured from the
+## model texture), or "police" for flashing blue/white to match the cruiser's livery.
 const LIST := [
-	{"name": "WHITE JEEP", "ar": "جيب أبيض", "mesh": ""},
-	{"name": "RED WAGON", "ar": "ستيشن أحمر", "mesh": "Object_2"},
-	{"name": "NAVY SEDAN", "ar": "سيدان كحلي", "mesh": "Object_3", "glow": Color(0.1, 0.9, 1.0)},
-	{"name": "MAROON SEDAN", "ar": "سيدان عنابي", "mesh": "Object_4", "glow": Color(1.0, 0.2, 0.85)},
-	{"name": "SILVER WAGON", "ar": "ستيشن فضي", "mesh": "Object_5"},
-	{"name": "GREEN HATCH", "ar": "هاتشباك أخضر", "mesh": "Object_6", "glow": Color(0.5, 1.0, 0.2)},
-	{"name": "BLUE WAGON", "ar": "ستيشن أزرق", "mesh": "Object_7"},
-	{"name": "BLUE VAN", "ar": "فان أزرق", "mesh": "Object_8"},
-	{"name": "CLASSIC SEDAN", "ar": "سيدان كلاسيكي", "mesh": "Object_9", "glow": Color(0.6, 0.25, 1.0)},
+	{"name": "WHITE JEEP", "ar": "جيب أبيض", "mesh": "", "glow": Color(1.0, 0.96, 0.9)},
+	{"name": "RED WAGON", "ar": "ستيشن أحمر", "mesh": "Object_2", "glow": Color(1.0, 0.2, 0.12)},
+	{"name": "NAVY SEDAN", "ar": "سيدان كحلي", "mesh": "Object_3", "glow": Color(0.3, 0.28, 1.0)},
+	{"name": "MAROON SEDAN", "ar": "سيدان عنابي", "mesh": "Object_4", "glow": Color(1.0, 0.3, 0.3)},
+	{"name": "SILVER WAGON", "ar": "ستيشن فضي", "mesh": "Object_5", "glow": Color(0.82, 0.9, 1.0)},
+	{"name": "GREEN HATCH", "ar": "هاتشباك أخضر", "mesh": "Object_6", "glow": Color(0.2, 1.0, 0.6)},
+	{"name": "BLUE WAGON", "ar": "ستيشن أزرق", "mesh": "Object_7", "glow": Color(0.15, 0.5, 1.0)},
+	{"name": "BLUE VAN", "ar": "فان أزرق", "mesh": "Object_8", "glow": Color(0.2, 0.55, 1.0)},
+	{"name": "CLASSIC SEDAN", "ar": "سيدان كلاسيكي", "mesh": "Object_9", "glow": Color(1.0, 0.38, 0.1)},
 	{"name": "POLICE CRUISER", "ar": "دورية شرطة", "mesh": "Object_10", "glow": "police"},
-	{"name": "YELLOW TAXI", "ar": "تاكسي أصفر", "mesh": "Object_11"},
-	{"name": "RUST BUCKET", "ar": "خردة صدئة", "mesh": "Object_12"},
-	{"name": "TEAL WRECK", "ar": "حطام فيروزي", "mesh": "Object_13"},
-	{"name": "PURPLE WRECK", "ar": "حطام بنفسجي", "mesh": "Object_14"},
+	{"name": "YELLOW TAXI", "ar": "تاكسي أصفر", "mesh": "Object_11", "glow": Color(1.0, 0.85, 0.1)},
+	{"name": "RUST BUCKET", "ar": "خردة صدئة", "mesh": "Object_12", "glow": Color(1.0, 0.5, 0.15)},
+	{"name": "TEAL WRECK", "ar": "حطام فيروزي", "mesh": "Object_13", "glow": Color(0.1, 1.0, 0.85)},
+	{"name": "PURPLE WRECK", "ar": "حطام بنفسجي", "mesh": "Object_14", "glow": Color(0.5, 0.4, 1.0)},
 ]
 
 static var _meshes := {}

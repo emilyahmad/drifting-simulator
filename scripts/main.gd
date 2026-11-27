@@ -9,9 +9,11 @@ const Creatures := preload("res://scripts/creatures.gd")
 const Car := preload("res://scripts/car.gd")
 const CarModels := preload("res://scripts/car_models.gd")
 const DriftFx := preload("res://scripts/drift_fx.gd")
+const SplashFx := preload("res://scripts/splash_fx.gd")
 const ChaseCam := preload("res://scripts/chase_camera.gd")
 const Hud := preload("res://scripts/ui/hud.gd")
 const Menu := preload("res://scripts/ui/menu.gd")
+const Radio := preload("res://scripts/radio.gd")
 const POST_SHADER := preload("res://shaders/ps2_post.gdshader")
 const SAVE_PATH := "user://riyadh_drift.cfg"
 const SPAWN := Vector3(0, 0, 0)
@@ -23,6 +25,10 @@ const LANDMARKS := [
 	{"id": "arch", "name": "THE LONE ARCH", "ar": "القوس الوحيد", "pos": Terrain.LONE_ARCH, "r": 32.0},
 	{"id": "gate", "name": "THE SCALLOPED GATE", "ar": "البوابة المزخرفة", "pos": Terrain.SCALLOP_GATE, "r": 32.0},
 	{"id": "chapel", "name": "THE SANDSTONE CHAPEL", "ar": "كنيسة الصخر الرملي", "pos": Terrain.CHAPEL, "r": 55.0},
+	{"id": "tomb", "name": "THE CARVED TOMB", "ar": "القبر المنحوت", "pos": Terrain.CARVED_TOMB, "r": 40.0},
+	{"id": "wind_arch", "name": "THE WIND ARCH", "ar": "قوس الريح", "pos": Terrain.WIND_ARCH, "r": 32.0},
+	{"id": "railway", "name": "THE OLD RAILWAY STATION", "ar": "محطة القطار القديمة", "pos": Terrain.RAILWAY, "r": 45.0},
+	{"id": "camp", "name": "THE BEDOUIN CAMP", "ar": "مخيم البدو", "pos": Terrain.BEDOUIN_CAMP, "r": 32.0},
 ]
 
 enum State { MENU, PLAYING, CINEMATIC }
@@ -30,6 +36,11 @@ enum State { MENU, PLAYING, CINEMATIC }
 const CINE_TIME := 6.0         # drone shot length (s)
 const CINE_BLEND := 1.2        # blend-in from the player camera (s)
 const CINE_SWEEP := deg_to_rad(200.0)
+# Two-finger swipe camera (trackpad pan gesture / two-finger touch drag).
+const SWIPE_TRACKPAD := 0.035  # rad per pan-gesture unit
+const SWIPE_TOUCH := 0.008     # rad per pixel of finger travel
+const SWIPE_INVERT_X := false
+const SWIPE_INVERT_Y := true
 
 var terrain
 var car
@@ -37,6 +48,8 @@ var chase_cam: Camera3D
 var menu_cam: Camera3D
 var hud
 var menu
+var radio
+var _radio_cfg := {}
 var state := State.MENU
 var _in_cockpit := false
 var _orbit := 0.0
@@ -47,6 +60,7 @@ var total := 0
 var _live := 0.0
 var _grace := 0.0
 var _saved_model := 0
+var fullscreen := false
 var discovered := {}      # landmark id -> true (saved)
 var _inside := {}         # landmark id -> currently inside its area
 # Discovery drone shot
@@ -56,6 +70,7 @@ var _cine_radius := 40.0
 var _cine_a0 := 0.0
 var _cine_dir := 1.0
 var _cine_from := Transform3D()
+var _touches := {}        # touch index -> position
 
 
 func _ready() -> void:
@@ -72,6 +87,7 @@ func _ready() -> void:
 
 	car = Car.new()
 	car.model_index = clampi(_saved_model, 0, CarModels.LIST.size() - 1)
+	car.terrain = terrain
 	add_child(car)
 	car.global_position = SPAWN + Vector3(0, terrain.height_at(SPAWN.x, SPAWN.z) + 1.2, 0)
 
@@ -83,6 +99,9 @@ func _ready() -> void:
 	var fx = DriftFx.new()
 	fx.car = car
 	add_child(fx)
+	var splash = SplashFx.new()
+	splash.car = car
+	add_child(splash)
 
 	chase_cam = ChaseCam.new()
 	chase_cam.target = car
@@ -97,6 +116,8 @@ func _ready() -> void:
 	add_child(menu_cam)
 
 	_setup_ui()
+	_setup_radio()
+	_apply_display()
 	_enter_menu(false)
 
 
@@ -106,6 +127,8 @@ func _enter_menu(paused: bool) -> void:
 	state = State.MENU
 	car.input_enabled = false
 	car.set_cockpit_view(false)
+	radio.set_cockpit(false)
+	radio.set_ducked(true)
 	hud.visible = false
 	menu.best = best
 	menu.total = total
@@ -113,6 +136,7 @@ func _enter_menu(paused: bool) -> void:
 	menu.found_max = LANDMARKS.size()
 	menu.car_index = car.model_index
 	menu.camera_name = "COCKPIT" if _in_cockpit else "CHASE"
+	menu.display_name = "FULLSCREEN" if fullscreen else "MAXIMIZED"
 	menu.open(paused)
 	menu_cam.h_offset = -2.4
 	menu_cam.fov = 55.0
@@ -125,11 +149,13 @@ func _start_playing() -> void:
 	hud.visible = true
 	hud.show_hints()
 	car.input_enabled = true
+	radio.set_ducked(false)
 	_apply_view()
 
 
 func _apply_view() -> void:
 	car.set_cockpit_view(_in_cockpit)
+	radio.set_cockpit(_in_cockpit)
 	if not _in_cockpit:
 		chase_cam.make_current()
 
@@ -157,6 +183,8 @@ func _on_menu_chosen(id: String) -> void:
 			_save()
 		"camera":
 			toggle_view()
+		"display":
+			toggle_fullscreen()
 		"quit":
 			get_tree().quit()
 
@@ -172,11 +200,15 @@ func _process(delta: float) -> void:
 	elif state == State.CINEMATIC:
 		_update_cinematic(delta)
 	else:
+		radio.set_zoom(1.0 if _in_cockpit else chase_cam.zoom)
 		hud.score = score
 		hud.live = _live
 		hud.speed = car.speed_kmh
 		hud.angle = absf(rad_to_deg(car.body_slip))
 		hud.drifting = car.is_drifting
+		hud.fuel = car.rocket.fuel
+		hud.fuel_locked = car.rocket.locked
+		hud.boosting = car.rocket.firing
 		var fwd: float = -(car.global_transform.basis.transposed() * car.linear_velocity).z
 		_check_landmarks()
 		hud.gear = "R" if fwd < -0.5 else ("D" if fwd > 0.5 or Input.is_action_pressed("throttle") else "N")
@@ -269,15 +301,39 @@ func _end_cinematic() -> void:
 	_apply_view()
 
 
+## Fullscreen <-> maximized window (F11 / Alt+Enter, or the menu). Saved between launches.
+func toggle_fullscreen() -> void:
+	fullscreen = not fullscreen
+	_apply_display()
+	menu.display_name = "FULLSCREEN" if fullscreen else "MAXIMIZED"
+	_save()
+
+
+func _apply_display() -> void:
+	if DisplayServer.get_name() == "headless":
+		return
+	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN if fullscreen else DisplayServer.WINDOW_MODE_MAXIMIZED)
+
+
 func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed("fullscreen"):
+		toggle_fullscreen()
+		get_viewport().set_input_as_handled()
+		return
 	if state == State.CINEMATIC:
 		if event.is_action_pressed("handbrake") or event.is_action_pressed("ui_accept") or event.is_action_pressed("quit"):
 			_end_cinematic()
 			get_viewport().set_input_as_handled()
 		return
+	if state == State.PLAYING and _swipe_input(event):
+		get_viewport().set_input_as_handled()
+		return
+	if _radio_input(event):
+		get_viewport().set_input_as_handled()
+		return
 	if event.is_action_pressed("toggle_view"):
 		toggle_view()
-	elif state == State.PLAYING and event.is_action_pressed("reset_car"):
+	elif state == State.PLAYING and (event.is_action_pressed("reset_car") or event.is_action_pressed("unstick")):
 		_live = 0.0
 		_reset_car()
 	elif event.is_action_pressed("quit"):
@@ -287,13 +343,44 @@ func _unhandled_input(event: InputEvent) -> void:
 			_start_playing()
 
 
+## Drop the car back onto the map near where it is (R or V): upright, same heading, at the
+## nearest spot where the whole car fits clear of walls, columns, rocks and so on.
 func _reset_car() -> void:
-	var p: Vector3 = car.global_position
+	var here := Vector2(car.global_position.x, car.global_position.z)
 	var lim := Terrain.HALF - 30.0
-	p.x = clampf(p.x, -lim, lim)
-	p.z = clampf(p.z, -lim, lim)
-	p.y = terrain.height_at(p.x, p.z) + 1.5
-	car.request_reset(p)
+	here = here.clamp(Vector2(-lim, -lim), Vector2(lim, lim))
+	var spot := _free_spot(here, lim)
+	car.request_reset(Vector3(spot.x, terrain.height_at(spot.x, spot.y) + 3.0, spot.y))
+
+
+## Searches rings around `from` (4 m apart, 12 directions) for a spot the car's collision box fits.
+func _free_spot(from: Vector2, lim: float) -> Vector2:
+	var space: PhysicsDirectSpaceState3D = car.get_world_3d().direct_space_state
+	var shape := BoxShape3D.new()
+	shape.size = Vector3(3.0, 2.4, 5.5)            # a bit bigger than any car, for margin
+	var q := PhysicsShapeQueryParameters3D.new()
+	q.shape = shape
+	q.exclude = [car.get_rid(), terrain_body_rid()]
+	q.collision_mask = 1                           # loose props get shoved aside anyway
+	var yaw: float = car.global_rotation.y
+	for ring in 16:
+		var r := ring * 4.0
+		var dirs := 1 if ring == 0 else 12
+		for k in dirs:
+			var a := TAU * k / dirs + yaw
+			var p := (from + Vector2(cos(a), sin(a)) * r).clamp(Vector2(-lim, -lim), Vector2(lim, lim))
+			q.transform = Transform3D(Basis(Vector3.UP, yaw), Vector3(p.x, terrain.height_at(p.x, p.y) + 2.2, p.y))
+			if space.intersect_shape(q, 1).is_empty():
+				return p
+	return Vector2(SPAWN.x, SPAWN.z)
+
+
+## RID of the ground's collision body, so the free-spot check ignores the sand itself.
+func terrain_body_rid() -> RID:
+	for c in terrain.get_children():
+		if c is CollisionObject3D:
+			return c.get_rid()
+	return RID()
 
 
 # --- Save --------------------------------------------------------------------
@@ -304,6 +391,10 @@ func _load_save() -> void:
 		best = cfg.get_value("score", "best", 0)
 		total = cfg.get_value("score", "total", 0)
 		_saved_model = cfg.get_value("car", "model", 0)
+		fullscreen = cfg.get_value("display", "fullscreen", false)
+		for k in ["on", "track", "volume", "shuffle"]:
+			if cfg.has_section_key("radio", k):
+				_radio_cfg[k] = cfg.get_value("radio", k)
 		for id in cfg.get_value("explore", "discovered", []):
 			discovered[id] = true
 
@@ -313,8 +404,84 @@ func _save() -> void:
 	cfg.set_value("score", "best", best)
 	cfg.set_value("score", "total", total)
 	cfg.set_value("car", "model", car.model_index)
+	cfg.set_value("display", "fullscreen", fullscreen)
 	cfg.set_value("explore", "discovered", discovered.keys())
+	if radio:
+		cfg.set_value("radio", "on", radio.on)
+		cfg.set_value("radio", "track", radio.index)
+		cfg.set_value("radio", "volume", radio.volume)
+		cfg.set_value("radio", "shuffle", radio.shuffle)
 	cfg.save(SAVE_PATH)
+
+
+# --- Two-finger swipe camera -------------------------------------------------
+
+func _swipe_input(event: InputEvent) -> bool:
+	var d := Vector2.ZERO
+	if event is InputEventPanGesture:            # macOS trackpad / precision touchpads
+		d = event.delta * SWIPE_TRACKPAD
+	elif event is InputEventScreenTouch:
+		if event.pressed:
+			_touches[event.index] = event.position
+		else:
+			_touches.erase(event.index)
+		return false
+	elif event is InputEventScreenDrag:
+		_touches[event.index] = event.position
+		if _touches.size() != 2:
+			return false
+		d = event.relative * 0.5 * SWIPE_TOUCH   # each finger reports half the swipe
+	else:
+		return false
+	if SWIPE_INVERT_X:
+		d.x = -d.x
+	if SWIPE_INVERT_Y:
+		d.y = -d.y
+	# Drag the view: swipe left -> look right, swipe up -> look down (like a touch map).
+	if _in_cockpit:
+		car.add_look(d.x, d.y * 0.6)
+	else:
+		chase_cam.add_orbit(d.x, d.y * 0.6)
+	return true
+
+
+# --- Radio -------------------------------------------------------------------
+
+func _setup_radio() -> void:
+	radio = Radio.new()
+	add_child(radio)
+	radio.track_changed.connect(hud.now_playing)
+	radio.volume_changed.connect(hud.show_volume)
+	radio.power_changed.connect(hud.radio_power)
+	# The horn retunes to whatever song is playing.
+	car.horn.prepare(Radio.KEYS.values())
+	radio.track_changed.connect(func(_t, _i, _c): car.horn.set_key(radio.current_key()))
+	radio.power_changed.connect(func(_on): car.horn.set_key(radio.current_key()))
+	radio.volume = clampi(_radio_cfg.get("volume", radio.volume), 0, Radio.VOL_STEPS)
+	radio.shuffle = _radio_cfg.get("shuffle", false)
+	if radio.has_tracks():
+		radio.index = clampi(_radio_cfg.get("track", 0), 0, radio.tracks.size() - 1)
+	radio.volume_step(0)
+	if _radio_cfg.get("on", false):
+		radio.set_on(true)
+
+
+## Stereo keys work while driving and in the menu (not during the drone shot).
+func _radio_input(event: InputEvent) -> bool:
+	if event.is_action_pressed("radio_toggle"):
+		radio.toggle()
+	elif event.is_action_pressed("radio_next", true):
+		radio.next()
+	elif event.is_action_pressed("radio_prev", true):
+		radio.prev()
+	elif event.is_action_pressed("radio_vol_up", true):
+		radio.volume_step(1)
+	elif event.is_action_pressed("radio_vol_down", true):
+		radio.volume_step(-1)
+	else:
+		return false
+	_save()
+	return true
 
 
 # --- Setup -------------------------------------------------------------------
@@ -330,9 +497,21 @@ func _setup_input() -> void:
 		"cam_up": [KEY_UP],
 		"cam_down": [KEY_DOWN],
 		"handbrake": [KEY_SPACE],
+		"honk": [KEY_H],
+		"rocket": [KEY_SHIFT],
 		"reset_car": [KEY_R],
+		"unstick": [KEY_V],
+		"wipe": [KEY_X],
 		"toggle_view": [KEY_C],
 		"quit": [KEY_ESCAPE],
+		"fullscreen": [KEY_F11],
+		"radio_toggle": [KEY_M],
+		"radio_next": [KEY_E],
+		"radio_prev": [KEY_Q],
+		"radio_vol_up": [KEY_BRACKETRIGHT],
+		"radio_vol_down": [KEY_BRACKETLEFT],
+		"zoom_in": [KEY_EQUAL, KEY_KP_ADD],
+		"zoom_out": [KEY_MINUS, KEY_KP_SUBTRACT],
 	}
 	for action in map:
 		if not InputMap.has_action(action):
@@ -341,6 +520,10 @@ func _setup_input() -> void:
 			var e := InputEventKey.new()
 			e.physical_keycode = key
 			InputMap.action_add_event(action, e)
+	var alt_enter := InputEventKey.new()
+	alt_enter.physical_keycode = KEY_ENTER
+	alt_enter.alt_pressed = true
+	InputMap.action_add_event("fullscreen", alt_enter)
 
 
 func _setup_environment() -> void:
@@ -424,7 +607,7 @@ func _setup_ui() -> void:
 	post_layer.layer = 100
 	add_child(post_layer)
 	var rect := ColorRect.new()
-	rect.set_anchors_preset(Control.PRESET_FULL_RECT)
+	rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var pm := ShaderMaterial.new()
 	pm.shader = POST_SHADER

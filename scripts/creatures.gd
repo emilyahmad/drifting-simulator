@@ -39,6 +39,8 @@ func _ready() -> void:
 		_herd("lizard", site[0], 25.0, 2)
 	_resting_camel(Terrain.OASIS + Vector2(-Terrain.POND_R - 7, 4), 1.2)
 	_resting_camel(Terrain.OASIS + Vector2(-Terrain.POND_R - 9, -3), 2.4)
+	_resting_camel(Terrain.BEDOUIN_CAMP + Vector2(-20, 7), 0.3)
+	_resting_camel(Terrain.BEDOUIN_CAMP + Vector2(-17, 9), 1.9)
 	# Falcons circling over the landmarks and open desert
 	_falcon(Terrain.COLONNADE, 40.0, 30.0, 0.22)
 	_falcon(Terrain.RUINS, 32.0, 26.0, -0.25)

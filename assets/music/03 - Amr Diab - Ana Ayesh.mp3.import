@@ -1,0 +1,19 @@
+[remap]
+
+importer="mp3"
+type="AudioStreamMP3"
+uid="uid://dbpd4bb1gvdu4"
+path="res://.godot/imported/03 - Amr Diab - Ana Ayesh.mp3-0b815275a9c49666f24c50f3143560e6.mp3str"
+
+[deps]
+
+source_file="res://assets/music/03 - Amr Diab - Ana Ayesh.mp3"
+dest_files=["res://.godot/imported/03 - Amr Diab - Ana Ayesh.mp3-0b815275a9c49666f24c50f3143560e6.mp3str"]
+
+[params]
+
+loop=false
+loop_offset=0
+bpm=0
+beat_count=0
+bar_beats=4

@@ -1,0 +1,19 @@
+[remap]
+
+importer="mp3"
+type="AudioStreamMP3"
+uid="uid://bjyke58bov3a7"
+path="res://.godot/imported/09 - Tamally Maak.mp3-9c496b487739b81150b96d435c37d2a9.mp3str"
+
+[deps]
+
+source_file="res://assets/music/09 - Tamally Maak.mp3"
+dest_files=["res://.godot/imported/09 - Tamally Maak.mp3-9c496b487739b81150b96d435c37d2a9.mp3str"]
+
+[params]
+
+loop=false
+loop_offset=0
+bpm=0
+beat_count=0
+bar_beats=4

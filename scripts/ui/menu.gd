@@ -7,8 +7,13 @@ signal chosen(id: String)
 const UI := preload("res://scripts/ui/ui_theme.gd")
 const CarModels := preload("res://scripts/car_models.gd")
 const CHROME := preload("res://shaders/chrome_text.gdshader")
-const W := 640.0
-const H := 448.0
+## Live screen size: the render area widens/narrows to fill the window (aspect "expand").
+var W: float:
+	get:
+		return size.x
+var H: float:
+	get:
+		return size.y
 const ITEM_Y := 200.0
 const ITEM_STEP := 30.0
 
@@ -18,6 +23,7 @@ var found := 0
 var found_max := 0
 var car_index := 0
 var camera_name := "CHASE"
+var display_name := "MAXIMIZED"
 var paused := false
 var _items: Array = []
 var _sel := 0
@@ -26,7 +32,7 @@ var _show_credits := false
 
 
 func _ready() -> void:
-	set_anchors_preset(Control.PRESET_FULL_RECT)
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 
 	var plate := Panel.new()
@@ -67,7 +73,7 @@ func _ready() -> void:
 
 func open(is_paused: bool) -> void:
 	paused = is_paused
-	_items = ["resume", "car", "camera", "restart", "credits", "quit"] if paused else ["start", "car", "camera", "credits", "quit"]
+	_items = ["resume", "car", "camera", "display", "restart", "credits", "quit"] if paused else ["start", "car", "camera", "display", "credits", "quit"]
 	_sel = 0
 	_show_credits = false
 	visible = true
@@ -80,6 +86,7 @@ func _labels(id: String) -> Array:
 		"restart": return ["restart", "من جديد"]
 		"quit": return ["quit", "خروج"]
 		"credits": return ["credits", "الحقوق"]
+		"display": return ["display: " + display_name.to_lower(), "الشاشة"]
 		"camera": return ["camera: " + camera_name.to_lower(), "الكاميرا"]
 		"car":
 			var m: Dictionary = CarModels.LIST[car_index]
@@ -149,12 +156,14 @@ func _draw() -> void:
 
 	# Backdrop: dim, slanted blue panel on the left, letterbox bars with a chrome rule.
 	draw_rect(Rect2(0, 0, W, H), Color(0, 0, 0, 0.2))
-	draw_polygon(PackedVector2Array([Vector2(0, 44), Vector2(430, 44), Vector2(330, 396), Vector2(0, 396)]),
+	var dx := W - 640.0
+	var dy := H - 448.0
+	draw_polygon(PackedVector2Array([Vector2(0, 44), Vector2(430, 44), Vector2(330, H - 52), Vector2(0, H - 52)]),
 			PackedColorArray([Color(UI.NAVY, 0.92), Color(UI.NAVY, 0.0), Color(UI.NAVY, 0.0), Color(UI.NAVY, 0.92)]))
 	draw_rect(Rect2(0, 0, W, 40), Color(0, 0, 0, 0.75))
 	draw_rect(Rect2(0, 40, W, 2), Color(0.8, 0.83, 0.88))
-	draw_rect(Rect2(0, 398, W, 50), Color(0, 0, 0, 0.75))
-	draw_rect(Rect2(0, 396, W, 2), Color(0.8, 0.83, 0.88))
+	draw_rect(Rect2(0, H - 50, W, 50), Color(0, 0, 0, 0.75))
+	draw_rect(Rect2(0, H - 52, W, 2), Color(0.8, 0.83, 0.88))
 
 	# Stats pill
 	var pill := StyleBoxFlat.new()
@@ -186,6 +195,8 @@ func _draw() -> void:
 		UI.text(self, p, lab[0], 22, col, en, "l", 5)
 		UI.text(self, p + Vector2(UI.width(lab[0], 22, en) + 12, -1), lab[1], 13, Color(col, 0.75), ar, "l", 3)
 
+	# Bottom bar contents (laid out on the 448-high base, shifted to the bottom edge)
+	draw_set_transform(Vector2(0, dy))
 	# Now playing (with a spinning record)
 	var box := StyleBoxFlat.new()
 	box.bg_color = Color(0.1, 0.1, 0.12, 0.9)
@@ -213,7 +224,10 @@ func _draw() -> void:
 	UI.text(self, Vector2(W * 0.5 + 115, 434), "\"PS2 car pack\" (skfb.ly/pHUTV) by the soppy prisma models .- · CC BY 4.0", 8, Color(1, 1, 1, 0.75), en, "c", 0)
 	UI.text(self, Vector2(W * 0.5 + 115, 444), "creativecommons.org/licenses/by/4.0 · models re-scaled & re-shaded", 8, Color(1, 1, 1, 0.6), en, "c", 0)
 
+	draw_set_transform(Vector2.ZERO)
+
 	if _show_credits:
+		draw_set_transform(Vector2(dx, dy) * 0.5)
 		var panel := StyleBoxFlat.new()
 		panel.bg_color = Color(0.04, 0.07, 0.18, 0.96)
 		panel.border_color = Color(0.55, 0.7, 1.0)
@@ -225,3 +239,4 @@ func _draw() -> void:
 		draw_multiline_string(ThemeDB.fallback_font, Vector2(90, 182), CarModels.CREDIT,
 				HORIZONTAL_ALIGNMENT_LEFT, 460, 12, -1, Color.WHITE)
 		UI.text(self, Vector2(320, 306), "press ENTER to close", 10, Color(1, 1, 1, 0.7), en, "c", 0)
+		draw_set_transform(Vector2.ZERO)

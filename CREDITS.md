@@ -9,3 +9,10 @@ Used in `assets/models/ps2_car_pack.glb`. Changes: models re-scaled, re-centred 
 rendered with the game's PS2-style shader.
 
 Everything else (white jeep, terrain, skyline, cockpit, UI) is built procedurally in code.
+
+## Music
+
+The tracks currently in `assets/music/` are third-party commercial recordings used for local
+playtesting only. They are not licensed for distribution and must be replaced or removed before
+the game is shared or released. Players can add their own `.ogg`/`.mp3` files to the game's
+`user://music/` folder.

@@ -1,0 +1,19 @@
+[remap]
+
+importer="mp3"
+type="AudioStreamMP3"
+uid="uid://c5n1vbb3brun8"
+path="res://.godot/imported/14 - Amr Diab - Kan Tayeb.mp3-ac92b680ec12b2929d7a9809ee41ab91.mp3str"
+
+[deps]
+
+source_file="res://assets/music/14 - Amr Diab - Kan Tayeb.mp3"
+dest_files=["res://.godot/imported/14 - Amr Diab - Kan Tayeb.mp3-ac92b680ec12b2929d7a9809ee41ab91.mp3str"]
+
+[params]
+
+loop=false
+loop_offset=0
+bpm=0
+beat_count=0
+bar_beats=4

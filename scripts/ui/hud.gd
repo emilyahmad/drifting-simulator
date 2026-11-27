@@ -3,8 +3,13 @@
 extends Control
 
 const UI := preload("res://scripts/ui/ui_theme.gd")
-const W := 640.0
-const H := 448.0
+## Live screen size: the render area widens/narrows to fill the window (aspect "expand").
+var W: float:
+	get:
+		return size.x
+var H: float:
+	get:
+		return size.y
 
 var score := 0
 var live := 0.0
@@ -14,6 +19,9 @@ var speed := 0.0
 var angle := 0.0
 var drifting := false
 var gear := "N"
+var fuel := 1.0
+var fuel_locked := false
+var boosting := false
 var hint_t := 0.0
 var cinematic := false:
 	set(v):
@@ -26,6 +34,15 @@ var _toast_ar := ""
 var _toast_new := false
 var _toast_t := 0.0
 var _toast_len := 0.0
+# Stereo display (top-right, under the icons)
+const STEREO_TIME := 3.5
+var _np_title := ""
+var _np_idx := 0
+var _np_count := 0
+var _np_vol := -1          # >= 0: show the volume bar instead of the track count
+var _np_vol_max := 10
+var _np_off := false
+var _np_t := 0.0
 
 
 func discover(landmark_name: String, landmark_ar: String, is_new: bool) -> void:
@@ -36,8 +53,30 @@ func discover(landmark_name: String, landmark_ar: String, is_new: bool) -> void:
 	_toast_t = _toast_len
 
 
+func now_playing(title: String, idx: int, count: int) -> void:
+	_np_title = title
+	_np_idx = idx
+	_np_count = count
+	_np_vol = -1
+	_np_off = false
+	_np_t = STEREO_TIME
+
+
+func show_volume(level: int, max_level: int) -> void:
+	_np_vol = level
+	_np_vol_max = max_level
+	_np_t = STEREO_TIME
+
+
+func radio_power(on: bool) -> void:
+	if not on:
+		_np_off = true
+		_np_vol = -1
+		_np_t = 1.6
+
+
 func _ready() -> void:
-	set_anchors_preset(Control.PRESET_FULL_RECT)
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 
@@ -49,6 +88,7 @@ func _process(delta: float) -> void:
 	flash_t = maxf(flash_t - delta, 0.0)
 	hint_t = maxf(hint_t - delta, 0.0)
 	_toast_t = maxf(_toast_t - delta, 0.0)
+	_np_t = maxf(_np_t - delta, 0.0)
 	if cinematic:
 		_cine_t += delta
 	queue_redraw()
@@ -78,15 +118,23 @@ func _draw() -> void:
 		UI.text(self, Vector2(W * 0.5 + 4, 20), "تفحيط رهيب!", 12, Color(UI.AMBER, a), ar, "l")
 		UI.text(self, Vector2(W * 0.5, 54), "+" + UI.fmt(flash), 32, Color(UI.AMBER, a), en, "c", 6)
 
+	# Groups are laid out on the 640x448 base and shifted to their screen edge.
+	var dx := W - 640.0
+	var dy := H - 448.0
+
 	# Top-right icons: camera (C) and pause (ESC)
+	draw_set_transform(Vector2(dx, 0))
 	draw_rect(Rect2(584, 12, 17, 13), white)
 	draw_colored_polygon(PackedVector2Array([Vector2(601, 16), Vector2(609, 12), Vector2(609, 25), Vector2(601, 21)]), white)
 	draw_rect(Rect2(619, 11, 5, 15), white)
 	draw_rect(Rect2(627, 11, 5, 15), white)
 	UI.text(self, Vector2(596, 38), "C", 9, white, en, "c", 3)
 	UI.text(self, Vector2(626, 38), "ESC", 9, white, en, "c", 3)
+	if _np_t > 0.0:
+		_draw_stereo(en)
 
 	# Drift angle meter
+	draw_set_transform(Vector2(0, dy))
 	UI.text(self, Vector2(14, 412), "DRIFT ANGLE", 12, white, en)
 	UI.text(self, Vector2(116, 412), "زاوية التفحيط", 11, Color(1, 1, 1, 0.75), ar)
 	const SEGS := 14
@@ -97,7 +145,23 @@ func _draw() -> void:
 			col = UI.RED if i >= 11 else UI.AMBER
 		draw_rect(Rect2(14 + i * 17, 420, 14, 8), col)
 
+	# Rocket fuel (above the drift meter): cyan segments, red + blinking when run dry.
+	const FUEL_SEGS := 14
+	var cyan := Color(0.35, 0.85, 1.0)
+	var blink := fuel_locked and fmod(Time.get_ticks_msec() / 1000.0, 0.5) < 0.25
+	UI.text(self, Vector2(14, 376), "ROCKET FUEL", 12, UI.RED if blink else white, en)
+	UI.text(self, Vector2(116, 376), "وقود الصاروخ", 11, Color(1, 1, 1, 0.75), ar)
+	UI.text(self, Vector2(250, 393), "SHIFT", 9, Color(1, 1, 1, 0.7), en, "l", 3)
+	var fuel_filled := fuel * FUEL_SEGS
+	for i in FUEL_SEGS:
+		var part := clampf(fuel_filled - i, 0.0, 1.0)
+		var on_col := UI.RED if fuel_locked else (Color(1, 1, 1) if boosting else cyan)
+		draw_rect(Rect2(14 + i * 17, 384, 14, 8), Color(1, 1, 1, 0.22))
+		if part > 0.0:
+			draw_rect(Rect2(14 + i * 17, 384, 14.0 * part, 8), on_col)
+
 	# Speedometer
+	draw_set_transform(Vector2(dx, dy))
 	var c := Vector2(578, 392)
 	var r := 46.0
 	var a0 := deg_to_rad(135.0)
@@ -118,13 +182,46 @@ func _draw() -> void:
 	draw_rect(Rect2(c.x - 50, c.y + 20, 16, 18), UI.AMBER)
 	UI.text(self, Vector2(c.x - 42, c.y + 34), gear, 14, Color(0.08, 0.06, 0.04), en, "c", 0)
 
+	draw_set_transform(Vector2.ZERO)
 	if _toast_t > 0.0:
 		_draw_toast(en, ar)
 
 	if hint_t > 0.0:
+		draw_set_transform(Vector2(0, dy))
 		var a := minf(hint_t, 1.0) * 0.85
-		UI.text(self, Vector2(W * 0.5, 372), "WASD DRIVE   ARROWS CAMERA   SPACE HANDBRAKE   C VIEW   R RESET", 9, Color(1, 1, 1, a), en, "c", 3)
-		UI.text(self, Vector2(W * 0.5, 388), "قيادة WASD   الكاميرا ←↑↓→   فرامل اليد SPACE   المنظور C   إعادة R", 10, Color(1, 1, 1, a), ar, "c", 3)
+		UI.text(self, Vector2(W * 0.5, 336), "WASD DRIVE   ARROWS/SWIPE CAMERA   -/+ ZOOM   SPACE HANDBRAKE   SHIFT ROCKET   H HORN   X WIPE   C VIEW   R/V UNSTICK   M RADIO   Q/E TRACK   [/] VOL", 9, Color(1, 1, 1, a), en, "c", 3)
+		UI.text(self, Vector2(W * 0.5, 352), "قيادة WASD   الكاميرا ←↑↓→   فرامل اليد SPACE   المنظور C   إعادة R   الراديو M", 10, Color(1, 1, 1, a), ar, "c", 3)
+		draw_set_transform(Vector2.ZERO)
+
+
+## Car-stereo head unit: amber LCD with the track name, track count or volume bar.
+## Drawn in the top-right group's 640-wide space (caller sets the transform).
+func _draw_stereo(en: Font) -> void:
+	var a := minf(clampf((STEREO_TIME - _np_t) / 0.15, 0.0, 1.0), clampf(_np_t / 0.5, 0.0, 1.0))
+	var box := Rect2(446, 48, 186, 34)
+	draw_rect(box, Color(0.04, 0.05, 0.12, 0.82 * a))
+	draw_rect(box, Color(UI.AMBER, 0.6 * a), false, 1.0)
+	var amber := Color(UI.AMBER, a)
+	# Music note icon
+	draw_circle(Vector2(456, 70), 3.5, amber)
+	draw_rect(Rect2(458.5, 55, 1.5, 15), amber)
+	draw_line(Vector2(459, 55), Vector2(465, 59), amber, 2.0)
+	if _np_off:
+		UI.text(self, Vector2(472, 70), "RADIO OFF", 12, amber, en, "l", 3)
+		return
+	var title := _np_title
+	while title.length() > 4 and UI.width(title, 11, en) > 150.0:
+		title = title.substr(0, title.length() - 2)
+	if title != _np_title:
+		title += "…"
+	UI.text(self, Vector2(470, 63), title, 11, amber, en, "l", 3)
+	if _np_vol >= 0:
+		UI.text(self, Vector2(470, 77), "VOL", 8, Color(1, 1, 1, 0.8 * a), en, "l", 2)
+		for i in _np_vol_max:
+			var on := i < _np_vol
+			draw_rect(Rect2(492 + i * 9, 70, 7, 6), amber if on else Color(1, 1, 1, 0.2 * a))
+	else:
+		UI.text(self, Vector2(470, 77), "%02d / %02d" % [_np_idx + 1, _np_count], 8, Color(1, 1, 1, 0.8 * a), en, "l", 2)
 
 
 ## Slanted banner that slides in from the left and fades out.

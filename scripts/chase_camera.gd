@@ -11,6 +11,12 @@ var _dir := Vector3.FORWARD
 var orbit_yaw := 0.0
 var orbit_pitch := 0.0
 const ORBIT_SPEED := 1.8
+# +/- zoom: scales the chase distance and height (smaller = closer to the car).
+var zoom := 1.0
+var _zoom_smooth := 1.0
+const ZOOM_MIN := 0.25   # ~2 m: right behind the bumper
+const ZOOM_MAX := 5.0    # ~40 m: wide aerial-ish view
+const ZOOM_SPEED := 1.2
 
 
 func _ready() -> void:
@@ -20,6 +26,12 @@ func _ready() -> void:
 	if target:
 		_dir = -target.global_transform.basis.z
 		global_position = target.global_position - _dir * distance + Vector3.UP * height
+
+
+## Two-finger swipe orbit (radians), same limits as the arrow keys.
+func add_orbit(d_yaw: float, d_pitch: float) -> void:
+	orbit_yaw = wrapf(orbit_yaw + d_yaw, -PI, PI)
+	orbit_pitch = clampf(orbit_pitch + d_pitch, -0.3, 1.1)
 
 
 func _physics_process(delta: float) -> void:
@@ -37,9 +49,12 @@ func _physics_process(delta: float) -> void:
 
 	orbit_yaw = wrapf(orbit_yaw + Input.get_axis("cam_right", "cam_left") * ORBIT_SPEED * delta, -PI, PI)
 	orbit_pitch = clampf(orbit_pitch + Input.get_axis("cam_down", "cam_up") * ORBIT_SPEED * 0.6 * delta, -0.3, 1.1)
+	# Hold + to zoom in, - to zoom out (exponential so it feels even at every range).
+	zoom = clampf(zoom * exp(Input.get_axis("zoom_in", "zoom_out") * ZOOM_SPEED * delta), ZOOM_MIN, ZOOM_MAX)
+	_zoom_smooth = lerpf(_zoom_smooth, zoom, 1.0 - exp(-10.0 * delta))
 	var view_dir := _dir.rotated(Vector3.UP, orbit_yaw)
 	var elev := atan2(height, distance) + orbit_pitch
-	var radius := Vector2(distance, height).length()
+	var radius := Vector2(distance, height).length() * _zoom_smooth
 	var desired := target.global_position + (-view_dir * cos(elev) + Vector3.UP * sin(elev)) * radius
 	var pos := global_position.lerp(desired, 1.0 - exp(-8.0 * delta))
 	if terrain:
@@ -50,6 +65,7 @@ func _physics_process(delta: float) -> void:
 	for _i in 8:
 		var q := PhysicsRayQueryParameters3D.create(look_from, pos)
 		q.exclude = [target.get_rid()]
+		q.collision_mask = 1      # ignore loose props rolling around
 		if space.intersect_ray(q).is_empty():
 			break
 		pos.y += 1.0

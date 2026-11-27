@@ -1,0 +1,19 @@
+[remap]
+
+importer="mp3"
+type="AudioStreamMP3"
+uid="uid://bn15ldml3q0hi"
+path="res://.godot/imported/11 - Genie In a Bottle.mp3-dc967e325d0665d3d8815b66b3d1b553.mp3str"
+
+[deps]
+
+source_file="res://assets/music/11 - Genie In a Bottle.mp3"
+dest_files=["res://.godot/imported/11 - Genie In a Bottle.mp3-dc967e325d0665d3d8815b66b3d1b553.mp3str"]
+
+[params]
+
+loop=false
+loop_offset=0
+bpm=0
+beat_count=0
+bar_beats=4

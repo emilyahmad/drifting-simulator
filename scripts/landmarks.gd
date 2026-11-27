@@ -1,6 +1,7 @@
 ## Desert landmarks: a palm oasis, Najdi mud-brick ruins, a Palmyra-style "Lost City of
 ## Pillars", three small ruin sites (temple of columns, lone arch, scalloped gate) and a
-## chapel set into a sandstone cliff.
+## chapel set into a sandstone cliff, plus a rock-cut tomb, a natural sandstone arch, an old
+## railway station with a derailed steam engine, and a Bedouin camp.
 ## Only walls, piers, columns and towers collide; rubble and foundations are drive-through,
 ## and every ruin has wide openings so it's easy to drift inside.
 extends Node3D
@@ -36,6 +37,10 @@ func _ready() -> void:
 	_build_lone_arch()
 	_build_scalloped_gate()
 	_build_chapel()
+	_build_carved_tomb()
+	_build_wind_arch()
+	_build_railway()
+	_build_bedouin_camp()
 
 
 # --- Oasis -------------------------------------------------------------------
@@ -144,8 +149,7 @@ func _bush(p: Vector2) -> void:
 
 func _rock(p: Vector2) -> void:
 	var s := Vector3(_rng.randf_range(0.8, 2.2), _rng.randf_range(0.5, 1.4), _rng.randf_range(0.8, 2.0))
-	var r := _box(s, _ground(p) + Vector3(0, s.y * 0.3, 0), Color(0.55, 0.42, 0.32))
-	r.rotation = Vector3(_rng.randf_range(-0.3, 0.3), _rng.randf() * TAU, _rng.randf_range(-0.3, 0.3))
+	_movable_box(s, _ground(p) + Vector3(0, s.y * 0.5, 0), _rng.randf() * TAU, Color(0.55, 0.42, 0.32), 160.0)
 
 
 # --- Najdi mud-brick compound ---------------------------------------------------
@@ -499,15 +503,21 @@ func _build_scalloped_gate() -> void:
 	body.height = 1.9
 	body.radial_segments = 10
 	body.rings = 5
-	_place(body, jar + Vector3(0, 0.95, 0), Color(0.55, 0.3, 0.18))
+	var jar_shape := CylinderShape3D.new()
+	jar_shape.radius = 0.8
+	jar_shape.height = 2.2
+	var jar_body := _movable(body, jar_shape, Transform3D(Basis(), jar + Vector3(0, 1.0, 0)), Color(0.55, 0.3, 0.18), 120.0)
 	var neck := CylinderMesh.new()
 	neck.top_radius = 0.45
 	neck.bottom_radius = 0.35
 	neck.height = 0.5
 	neck.radial_segments = 10
 	neck.rings = 1
-	_place(neck, jar + Vector3(0, 2.0, 0), Color(0.5, 0.27, 0.16))
-	_collider_cylinder(jar + Vector3(0, 1.0, 0), 0.85, 2.0)
+	var neck_mi := MeshInstance3D.new()
+	neck_mi.mesh = neck
+	neck_mi.material_override = _mat(Color(0.5, 0.27, 0.16))
+	neck_mi.position = Vector3(0, 1.0, 0)
+	jar_body.add_child(neck_mi)
 	for i in 12:
 		_rubble(o + Vector3(_rng.randf_range(-12, 12), 0, _rng.randf_range(-14, 14)), 2, STONE_DARK)
 	_foundation(o + Vector3(-12, 0, 0), Vector2(8, 14))
@@ -661,6 +671,341 @@ func _tree(p: Vector2) -> void:
 	_collider_cylinder(base + Vector3(0, 1.6, 0), 0.35, 3.2)
 
 
+# --- Carved tomb (Nabataean-style rock-cut facade) --------------------------------
+# A lone sandstone outcrop with a tomb facade carved into its east face (toward spawn),
+# plus a couple of smaller boulders with little carved doorways.
+
+func _build_carved_tomb() -> void:
+	var o := _ground(Terrain.CARVED_TOMB)
+	var strata := [Color(0.84, 0.62, 0.44), Color(0.78, 0.55, 0.38), Color(0.88, 0.68, 0.5)]
+	# Outcrop: stacked, slightly uneven layers that narrow toward a rounded top.
+	var y := 0.0
+	var layer := 0
+	while y < 19.0:
+		var h := _rng.randf_range(2.2, 3.4)
+		var shrink := maxf(0.0, y - 11.0) * 0.9
+		var hx := 11.0 - shrink * 0.6 + _rng.randf_range(-0.6, 0.6)
+		var hz := 13.0 - shrink + _rng.randf_range(-0.8, 0.8)
+		if y < 15.0:
+			hx = 11.0      # keep the carved face flush for the facade
+		_rock_layer(o, Vector3(-hx - 3.0, y, -hz), Vector3(hx, y + h, hz), strata[layer % strata.size()])
+		y += h
+		layer += 1
+	# Facade, carved into the +X face: smoothed panel, pilasters, doorway, pediment, crow-steps.
+	var face_x := 11.0 + 0.05
+	var smooth := Color(0.92, 0.74, 0.55)
+	var shadow := Color(0.2, 0.13, 0.09)
+	_box(Vector3(0.3, 15.0, 10.0), o + Vector3(face_x, 7.5, 0), smooth, true)
+	for pz in [-4.3, -1.6, 1.6, 4.3]:
+		_box(Vector3(0.35, 9.0, 0.7), o + Vector3(face_x + 0.15, 4.5, pz), STONE_2)
+	_box(Vector3(0.5, 0.6, 10.4), o + Vector3(face_x + 0.2, 9.2, 0), STONE_DARK)      # cornice
+	_box(Vector3(0.5, 0.5, 10.4), o + Vector3(face_x + 0.2, 12.0, 0), STONE_DARK)     # upper cornice
+	_box(Vector3(0.1, 4.2, 2.4), o + Vector3(face_x + 0.2, 2.1, 0), shadow)            # doorway
+	var ped := PrismMesh.new()                                                           # pediment over the door
+	ped.size = Vector3(3.6, 1.3, 0.3)
+	var pm := _place(ped, o + Vector3(face_x + 0.25, 5.0, 0), STONE_2)
+	pm.rotation.y = PI * 0.5
+	_box(Vector3(0.4, 0.25, 3.8), o + Vector3(face_x + 0.25, 4.3, 0), STONE_DARK)
+	# Crow-step crown: two inward-facing staircases at the top of the facade.
+	for s in [-1.0, 1.0]:
+		for k in 4:
+			var hh := 0.7 * (4 - k)
+			_box(Vector3(0.4, hh, 1.1), o + Vector3(face_x + 0.15, 12.25 + hh * 0.5, s * (4.6 - k * 1.15)), smooth)
+	# Round urn carving above the doorway
+	var urn := _disc(o + Vector3(face_x + 0.35, 7.2, 0), 0.5, 0.15, STONE_DARK)
+	urn.rotation = Vector3(0, 0, PI * 0.5)
+	# Satellite boulders with small carved doorways
+	for spot in [Vector3(18, 0, -16), Vector3(-6, 0, 22), Vector3(20, 0, 18)]:
+		var bs := Vector3(_rng.randf_range(5, 7), _rng.randf_range(4, 6), _rng.randf_range(5, 7))
+		_rock_layer(o, spot - Vector3(bs.x * 0.5, 0, bs.z * 0.5), spot + Vector3(bs.x * 0.5, bs.y, bs.z * 0.5), strata[_rng.randi() % 3])
+		_box(Vector3(0.1, 1.8, 1.0), o + spot + Vector3(bs.x * 0.5 + 0.05, 0.9, 0), shadow)
+		_box(Vector3(0.2, 0.25, 1.5), o + spot + Vector3(bs.x * 0.5 + 0.1, 2.0, 0), STONE_DARK)
+	for i in 8:
+		_rock(Terrain.CARVED_TOMB + Vector2(_rng.randf_range(-30, 30), _rng.randf_range(-30, 30)))
+
+
+# --- Wind Arch (natural sandstone arch) -------------------------------------------
+# Two weathered rock legs and a sagging span, wide and tall enough to drift under.
+
+func _build_wind_arch() -> void:
+	var o := _ground(Terrain.WIND_ARCH)
+	var strata := [Color(0.82, 0.5, 0.34), Color(0.74, 0.44, 0.3), Color(0.88, 0.6, 0.42), Color(0.7, 0.4, 0.27)]
+	const GAP := 9.0          # half-width of the opening (18 m)
+	const LEG_TOP := 13.0
+	# Legs: wider at the base, eroded and offset as they rise.
+	for s in [-1.0, 1.0]:
+		var y := 0.0
+		var layer := 0
+		while y < LEG_TOP:
+			var h := _rng.randf_range(1.8, 2.8)
+			var t := y / LEG_TOP
+			var width := lerpf(9.0, 5.5, sin(t * PI) * 0.7 + t * 0.3) + _rng.randf_range(-0.5, 0.5)
+			var depth := lerpf(8.0, 5.0, t) + _rng.randf_range(-0.5, 0.5)
+			var inner: float = s * (GAP - sin(t * PI * 0.5) * 1.5)
+			var outer: float = inner + s * width
+			_rock_layer(o, Vector3(-depth * 0.5, y, minf(inner, outer)), Vector3(depth * 0.5, y + h, maxf(inner, outer)), strata[layer % strata.size()])
+			y += h
+			layer += 1
+	# Span: a shallow curve of rock blocks bridging the legs (visual only, well above the car).
+	var segs := 9
+	for k in segs:
+		var t := (k + 0.5) / segs
+		var z := lerpf(-GAP - 2.0, GAP + 2.0, t)
+		var sag := sin(t * PI) * 1.8
+		var h := 3.2 - sin(t * PI) * 1.0 + _rng.randf_range(-0.3, 0.3)
+		var b := _box(Vector3(5.2 + _rng.randf_range(-0.4, 0.4), h, (2.0 * GAP + 4.0) / segs + 0.4),
+				o + Vector3(0, LEG_TOP + sag + h * 0.5 - 0.3, z), strata[k % strata.size()], true)
+		b.rotation.x = cos(t * PI) * -0.18
+	# Crown blocks on top
+	for k in 5:
+		var h := _rng.randf_range(0.8, 1.6)
+		_box(Vector3(_rng.randf_range(2.5, 4.0), h, _rng.randf_range(2.5, 4.0)),
+				o + Vector3(_rng.randf_range(-1, 1), LEG_TOP + 4.3 + h * 0.5, _rng.randf_range(-8, 8)), strata[k % strata.size()], true)
+	# Fallen chunks and a few desert shrubs around the base
+	for i in 7:
+		var a := _rng.randf() * TAU
+		_rock(Terrain.WIND_ARCH + Vector2(cos(a), sin(a)) * _rng.randf_range(14, 30))
+	for i in 6:
+		var a := _rng.randf() * TAU
+		_bush(Terrain.WIND_ARCH + Vector2(cos(a), sin(a)) * _rng.randf_range(16, 34))
+
+
+# --- Old railway station ------------------------------------------------------------
+# A basalt-and-limestone station on a line that runs off into the dunes, with a
+# derailed steam engine lying beside the tracks. Tracks are drive-over.
+
+func _build_railway() -> void:
+	var c := Terrain.RAILWAY
+	var o := _ground(c)
+	var basalt := Color(0.36, 0.33, 0.31)
+	var lime := Color(0.86, 0.8, 0.68)
+	var rail_col := Color(0.42, 0.3, 0.22)
+	var wood := Color(0.36, 0.25, 0.16)
+	const TRACK_Z := 6.0
+	# Track: sleepers every 1.6 m and rail segments every 8 m, following the ground.
+	var x := -150.0
+	while x < 150.0:
+		_box(Vector3(0.35, 0.12, 2.6), _ground(c + Vector2(x, TRACK_Z)) + Vector3(0, 0.06, 0), wood)
+		x += 1.6
+	x = -150.0
+	while x < 150.0:
+		var a := _ground(c + Vector2(x, TRACK_Z))
+		var b := _ground(c + Vector2(x + 8.0, TRACK_Z))
+		for rz in [-0.75, 0.75]:
+			var r := _box(Vector3(a.distance_to(b) + 0.05, 0.14, 0.12), (a + b) * 0.5 + Vector3(0, 0.2, rz), rail_col)
+			r.rotation.z = atan2(b.y - a.y, b.x - a.x)
+		x += 8.0
+	# Platform
+	_box(Vector3(40.0, 0.5, 4.0), o + Vector3(0, 0.25, TRACK_Z - 3.5), lime, true)
+	# Station building: two storeys, arched windows and a door facing the track.
+	var bz := -4.0
+	_box(Vector3(22.0, 9.0, 9.0), o + Vector3(0, 4.5, bz), basalt, true)
+	_collider_box(o + Vector3(0, 4.5, bz), Vector3(22.0, 9.0, 9.0))
+	for band in [0.4, 4.6, 8.9]:
+		_box(Vector3(22.4, 0.4, 9.4), o + Vector3(0, band, bz), lime)
+	for wx in [-8.0, -4.0, 0.0, 4.0, 8.0]:
+		for wy in [1.6, 5.8]:
+			var door: bool = wy < 2.0 and absf(wx) < 1.0
+			var h := 2.8 if door else 1.8
+			var y0: float = wy - (0.4 if door else 0.0)
+			_box(Vector3(1.2, h, 0.1), o + Vector3(wx, y0 + h * 0.5, bz + 4.55), VENT)
+			_disc(o + Vector3(wx, y0 + h, bz + 4.55), 0.6, 0.1, VENT)
+			_box(Vector3(1.6, 0.2, 0.3), o + Vector3(wx, y0 - 0.1, bz + 4.6), lime)
+	# Crenellated parapet and a small clock gable
+	for k in 11:
+		_box(Vector3(1.0, 0.6, 9.2), o + Vector3(-10.0 + k * 2.0, 9.4, bz), basalt)
+	_box(Vector3(5.0, 3.0, 1.0), o + Vector3(0, 10.5, bz + 4.0), lime, true)
+	_disc(o + Vector3(0, 10.8, bz + 4.55), 0.9, 0.1, Color(0.95, 0.93, 0.85))
+	_box(Vector3(0.08, 0.7, 0.05), o + Vector3(0, 11.1, bz + 4.62), VENT)
+	_box(Vector3(0.5, 0.08, 0.05), o + Vector3(0.22, 10.8, bz + 4.62), VENT)
+	# Water tower
+	var wt := o + Vector3(-22.0, 0, -2.0)
+	for lx in [-1.4, 1.4]:
+		for lz in [-1.4, 1.4]:
+			_box(Vector3(0.35, 7.0, 0.35), wt + Vector3(lx, 3.5, lz), wood)
+	var tank := CylinderMesh.new()
+	tank.top_radius = 2.4
+	tank.bottom_radius = 2.4
+	tank.height = 3.2
+	tank.radial_segments = 10
+	tank.rings = 1
+	_place(tank, wt + Vector3(0, 8.6, 0), Color(0.45, 0.3, 0.22))
+	_collider_cylinder(wt + Vector3(0, 3.5, 0), 2.0, 7.0)
+	# Derailed engine and a tipped wagon beside the line
+	_steam_engine(o + Vector3(30.0, 0, TRACK_Z + 4.5), 0.25, 0.35)
+	var wag := o + Vector3(44.0, 0, TRACK_Z + 6.0)
+	var w := _box(Vector3(8.0, 2.6, 2.8), wag + Vector3(0, 1.4, 0), Color(0.48, 0.3, 0.2), true)
+	w.rotation = Vector3(0.9, 0.35, 0)
+	_collider_box(wag + Vector3(0, 1.4, 0), Vector3(8.0, 2.4, 3.6))
+	for i in 10:
+		_rubble(o + Vector3(_rng.randf_range(-30, 50), 0, _rng.randf_range(-15, 20)), 2, basalt)
+
+
+## Old steam locomotive: boiler, smokebox, chimney, cab, big wheels. Tipped partly over.
+func _steam_engine(at: Vector3, yaw: float, roll: float) -> void:
+	var rust := Color(0.42, 0.24, 0.15)
+	var iron := Color(0.2, 0.18, 0.17)
+	var root := Node3D.new()
+	root.position = at
+	root.rotation = Vector3(roll, yaw, 0)
+	add_child(root)
+	var parts := []
+	parts.append([_cyl_mesh(1.1, 1.1, 7.0), Vector3(-1.0, 2.4, 0), Vector3(0, 0, PI * 0.5), rust])     # boiler
+	parts.append([_cyl_mesh(1.2, 1.2, 1.4), Vector3(-4.6, 2.4, 0), Vector3(0, 0, PI * 0.5), iron])     # smokebox
+	parts.append([_cyl_mesh(0.5, 0.35, 1.6), Vector3(-4.4, 4.1, 0), Vector3.ZERO, iron])                # chimney
+	parts.append([_cyl_mesh(0.45, 0.55, 0.7), Vector3(-1.0, 3.7, 0), Vector3.ZERO, rust])               # steam dome
+	var cab := BoxMesh.new()
+	cab.size = Vector3(2.6, 3.0, 2.8)
+	parts.append([cab, Vector3(3.6, 2.6, 0), Vector3.ZERO, rust])
+	var cab_roof := BoxMesh.new()
+	cab_roof.size = Vector3(3.0, 0.2, 3.2)
+	parts.append([cab_roof, Vector3(3.6, 4.2, 0), Vector3.ZERO, iron])
+	var frame := BoxMesh.new()
+	frame.size = Vector3(10.0, 0.5, 2.2)
+	parts.append([frame, Vector3(-0.2, 1.05, 0), Vector3.ZERO, iron])
+	for wx in [-3.4, -1.4, 0.6, 2.6]:
+		var wr := 0.8 if wx > -3.0 else 0.5
+		for wz in [-1.15, 1.15]:
+			parts.append([_cyl_mesh(wr, wr, 0.2), Vector3(wx, wr, wz), Vector3(PI * 0.5, 0, 0), iron])
+	for p in parts:
+		var mi := MeshInstance3D.new()
+		mi.mesh = p[0]
+		mi.position = p[1]
+		mi.rotation = p[2]
+		mi.material_override = _mat(p[3])
+		root.add_child(mi)
+	_collider_box(at + Vector3(0, 2.0, 0), Vector3(10.5, 4.0, 3.0))
+
+
+func _cyl_mesh(top: float, bottom: float, height: float) -> CylinderMesh:
+	var m := CylinderMesh.new()
+	m.top_radius = top
+	m.bottom_radius = bottom
+	m.height = height
+	m.radial_segments = 10
+	m.rings = 1
+	return m
+
+
+# --- Bedouin camp -----------------------------------------------------------------
+# Black goat-hair tents around a glowing campfire, with rugs, cushions and coffee pots.
+
+func _build_bedouin_camp() -> void:
+	var c := Terrain.BEDOUIN_CAMP
+	var o := _ground(c)
+	var pole := Color(0.4, 0.28, 0.16)
+	var rugs := [Color(0.62, 0.12, 0.1), Color(0.75, 0.45, 0.12), Color(0.42, 0.12, 0.2)]
+	# Tents ring the fire, open fronts facing it (yaw points each tent's front, +Z, inward).
+	var spots := [Vector2(-14, -6), Vector2(10, -14), Vector2(15, 9), Vector2(-9, 14)]
+	for i in spots.size():
+		var sp: Vector2 = spots[i]
+		var yaw := atan2(-sp.x, -sp.y)
+		var cloth := Color(0.13, 0.1, 0.09) if i % 2 == 0 else Color(0.2, 0.15, 0.12)
+		_tent(_ground(c + sp), yaw, cloth, pole, rugs[i % rugs.size()])
+	# Campfire: stone ring, logs, glowing embers and a warm light.
+	for k in 8:
+		var a := TAU * k / 8.0
+		_box(Vector3(0.5, 0.35, 0.45), o + Vector3(cos(a) * 1.3, 0.18, sin(a) * 1.3), Color(0.4, 0.33, 0.28)).rotation.y = -a
+	for k in 3:
+		_box(Vector3(1.8, 0.25, 0.25), o + Vector3(0, 0.25, 0), pole.darkened(0.3)).rotation = Vector3(0, TAU * k / 3.0, 0.25)
+	var ember := SphereMesh.new()
+	ember.radius = 0.55
+	ember.height = 0.6
+	ember.radial_segments = 6
+	ember.rings = 3
+	_place(ember, o + Vector3(0, 0.3, 0), Color(2.4, 0.9, 0.2))
+	var flame := PrismMesh.new()
+	flame.size = Vector3(0.6, 1.1, 0.6)
+	_place(flame, o + Vector3(0, 0.95, 0), Color(2.6, 1.3, 0.3))
+	var light := OmniLight3D.new()
+	light.light_color = Color(1.0, 0.6, 0.3)
+	light.light_energy = 2.5
+	light.omni_range = 16.0
+	light.position = o + Vector3(0, 1.6, 0)
+	add_child(light)
+	# Dallah coffee pots on a brass tray by the fire
+	var brass := Color(0.8, 0.62, 0.25)
+	for k in 2:
+		var pot := o + Vector3(2.2, 0, -0.5 + k * 1.0)
+		var pot_shape := CylinderShape3D.new()
+		pot_shape.radius = 0.2
+		pot_shape.height = 0.4
+		var pot_body := _movable(_cyl_mesh(0.12, 0.22, 0.35), pot_shape, Transform3D(Basis(), pot + Vector3(0, 0.2, 0)), brass, 3.0)
+		var lid := PrismMesh.new()
+		lid.size = Vector3(0.22, 0.2, 0.22)
+		var lid_mi := MeshInstance3D.new()
+		lid_mi.mesh = lid
+		lid_mi.material_override = _mat(brass)
+		lid_mi.position = Vector3(0, 0.27, 0)
+		pot_body.add_child(lid_mi)
+	_place(_cyl_mesh(0.9, 0.9, 0.04), o + Vector3(2.4, 0.02, 0), brass.darkened(0.15))
+	# Saddle bags, tethering posts, shrubs and palms
+	for i in 6:
+		var a := _rng.randf() * TAU
+		var p := c + Vector2(cos(a), sin(a)) * _rng.randf_range(5, 8)
+		_movable_box(Vector3(0.9, 0.6, 0.6), _ground(p) + Vector3(0, 0.3, 0), a, (rugs[i % rugs.size()] as Color).darkened(0.2), 30.0)
+	for k in 3:
+		_box(Vector3(0.2, 1.4, 0.2), o + Vector3(-22 + k * 2.5, 0.7, 4), pole)
+	for i in 5:
+		var a := _rng.randf() * TAU
+		_bush(c + Vector2(cos(a), sin(a)) * _rng.randf_range(24, 38))
+	for spot in [Vector2(-26, -18), Vector2(24, -24), Vector2(28, 22)]:
+		_palm(c + spot, _rng.randf_range(6.0, 8.5), Vector3(_rng.randf_range(-1, 1), 0, _rng.randf_range(-1, 1)).normalized())
+
+
+## Long, low black tent: a peaked roof on poles, closed back and sides, open front (+Z)
+## with a rug and cushions.
+func _tent(at: Vector3, yaw: float, cloth: Color, pole: Color, rug: Color) -> void:
+	var root := Node3D.new()
+	root.position = at
+	root.rotation.y = yaw
+	add_child(root)
+	const L := 9.0
+	const D := 5.0
+	var bits := []
+	for s in [-1.0, 1.0]:
+		var roof := BoxMesh.new()
+		roof.size = Vector3(L, 0.08, D * 0.55)
+		bits.append([roof, Vector3(0, 2.15, s * D * 0.25), Vector3(s * 0.28, 0, 0), cloth])
+	var back := BoxMesh.new()
+	back.size = Vector3(L, 1.9, 0.08)
+	bits.append([back, Vector3(0, 0.95, -D * 0.5), Vector3(-0.12, 0, 0), cloth])
+	for s in [-1.0, 1.0]:
+		var side := BoxMesh.new()
+		side.size = Vector3(0.08, 1.9, D * 0.6)
+		bits.append([side, Vector3(s * L * 0.5, 0.95, -D * 0.2), Vector3.ZERO, cloth])
+	for px in [-L * 0.5 + 0.2, 0.0, L * 0.5 - 0.2]:
+		for pz in [-D * 0.45, 0.0, D * 0.45]:
+			var p := BoxMesh.new()
+			p.size = Vector3(0.1, 2.4 if pz == 0.0 else 1.9, 0.1)
+			bits.append([p, Vector3(px, p.size.y * 0.5, pz), Vector3.ZERO, pole])
+	var r := BoxMesh.new()
+	r.size = Vector3(L - 1.0, 0.04, D * 0.8)
+	bits.append([r, Vector3(0, 0.02, 0.2), Vector3.ZERO, rug])
+	var stripe := BoxMesh.new()
+	stripe.size = Vector3(L - 1.0, 0.045, 0.3)
+	bits.append([stripe, Vector3(0, 0.025, 0.2), Vector3.ZERO, Color(0.9, 0.8, 0.55)])
+	for cx in [-2.8, 0.0, 2.8]:
+		var cushion := BoxMesh.new()
+		cushion.size = Vector3(1.6, 0.4, 0.6)
+		bits.append([cushion, Vector3(cx, 0.22, -D * 0.38), Vector3.ZERO, rug.lightened(0.15)])
+	for b in bits:
+		var mi := MeshInstance3D.new()
+		mi.mesh = b[0]
+		mi.position = b[1]
+		mi.rotation = b[2]
+		mi.material_override = _mat(b[3])
+		root.add_child(mi)
+	# Collide with the back wall only, so you can drift right up to the open front.
+	var basis := Basis(Vector3.UP, yaw)
+	var cs := CollisionShape3D.new()
+	var shape := BoxShape3D.new()
+	shape.size = Vector3(L, 2.2, 0.6)
+	cs.shape = shape
+	cs.transform = Transform3D(basis, at + basis * Vector3(0, 1.1, -D * 0.5))
+	_body.add_child(cs)
+
+
 # --- Stone building blocks -------------------------------------------------------
 
 ## Classical column (plinth, drums, flared capital). Returns the top centre.
@@ -703,7 +1048,7 @@ func _plinth(base: Vector3) -> void:
 	_box(Vector3(1.4, 0.55, 1.4), base + Vector3(0, 0.27, 0), STONE_DARK, true)
 
 
-## Column drums lying in a row on the sand (drive-through).
+## Column drums lying in a row on the sand (you can shove them around).
 func _fallen_column(at: Vector3, drums: int) -> void:
 	var yaw := _rng.randf() * TAU
 	var dir := Vector3(cos(yaw), 0, sin(yaw))
@@ -714,9 +1059,12 @@ func _fallen_column(at: Vector3, drums: int) -> void:
 		drum.height = 1.4
 		drum.radial_segments = 8
 		drum.rings = 1
-		var p := at + dir * (i * 1.6 + _rng.randf_range(-0.2, 0.3)) + Vector3(0, 0.4, 0)
-		var mi := _place(drum, p, STONE if i % 2 == 0 else STONE_2)
-		mi.basis = Basis(Quaternion(Vector3.UP, dir))
+		var p := at + dir * (i * 1.6 + _rng.randf_range(-0.2, 0.3))
+		p = _ground(Vector2(p.x, p.z)) + Vector3(0, 0.48, 0)
+		var shape := CylinderShape3D.new()
+		shape.radius = 0.47
+		shape.height = 1.4
+		_movable(drum, shape, Transform3D(Basis(Quaternion(Vector3.UP, dir)), p), STONE if i % 2 == 0 else STONE_2, 220.0)
 
 
 ## Semicircular arch of voussoir blocks. `across` spans the opening horizontally.
@@ -746,11 +1094,50 @@ func _foundation(centre: Vector3, size: Vector2) -> void:
 func _rubble(at: Vector3, n: int, col: Color) -> void:
 	for i in n:
 		var s := Vector3(_rng.randf_range(0.4, 1.2), _rng.randf_range(0.3, 0.6), _rng.randf_range(0.4, 1.1))
-		var b := _box(s, at + Vector3(_rng.randf_range(-1.8, 1.8), s.y * 0.4, _rng.randf_range(-1.8, 1.8)), col)
-		b.rotation = Vector3(_rng.randf_range(-0.4, 0.4), _rng.randf() * TAU, _rng.randf_range(-0.4, 0.4))
+		var off := Vector3(_rng.randf_range(-1.8, 1.8), 0, _rng.randf_range(-1.8, 1.8))
+		var g := _ground(Vector2(at.x + off.x, at.z + off.z))
+		_movable_box(s, g + Vector3(0, s.y * 0.5, 0), _rng.randf() * TAU, col, 25.0 + s.x * s.y * s.z * 120.0)
 
 
 # --- Helpers -----------------------------------------------------------------
+
+## Loose props (rubble, rocks, column drums, jars...) are rigid bodies on layer 2. They start
+## asleep, so they cost nothing until the car's plow (layer 3) or another prop knocks them.
+const PROP_LAYER := 2
+const PROP_MASK := 1 | 2 | 4      # world statics, other props, the car's plow
+
+
+func _movable(mesh: Mesh, shape: Shape3D, xf: Transform3D, col: Color, mass: float) -> RigidBody3D:
+	var rb := RigidBody3D.new()
+	rb.mass = mass
+	rb.collision_layer = PROP_LAYER
+	rb.collision_mask = PROP_MASK
+	rb.can_sleep = true
+	rb.sleeping = true
+	rb.linear_damp = 0.3
+	rb.angular_damp = 0.8
+	rb.transform = xf
+	var pm := PhysicsMaterial.new()
+	pm.friction = 0.9
+	pm.bounce = 0.05
+	rb.physics_material_override = pm
+	var mi := MeshInstance3D.new()
+	mi.mesh = mesh
+	mi.material_override = _mat(col)
+	rb.add_child(mi)
+	var cs := CollisionShape3D.new()
+	cs.shape = shape
+	rb.add_child(cs)
+	add_child(rb)
+	return rb
+
+
+func _movable_box(size: Vector3, pos: Vector3, yaw: float, col: Color, mass: float) -> RigidBody3D:
+	var b := BoxMesh.new()
+	b.size = size
+	var shape := BoxShape3D.new()
+	shape.size = size
+	return _movable(b, shape, Transform3D(Basis(Vector3.UP, yaw), pos), col, mass)
 
 func _ground(p: Vector2) -> Vector3:
 	return Vector3(p.x, terrain.height_at(p.x, p.y), p.y)

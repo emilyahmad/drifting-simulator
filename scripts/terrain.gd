@@ -12,7 +12,7 @@ const OASIS := Vector2(150, -20)
 const OASIS_R := 75.0
 const OASIS_H := 2.5
 const POND_R := 22.0
-const POND_DEPTH := 2.2
+const POND_DEPTH := 1.6        # ~0.9 m of water: cars wade through with the body above the surface
 const WATER_LEVEL := OASIS_H - 0.7
 const RUINS := Vector2(-150, 40)          # Najdi mud-brick compound
 const COLONNADE := Vector2(-30, -150)     # Palmyra-style lost city of pillars
@@ -20,6 +20,10 @@ const TEMPLE := Vector2(110, 130)         # small temple of columns
 const LONE_ARCH := Vector2(-120, 150)
 const SCALLOP_GATE := Vector2(150, -165)
 const CHAPEL := Vector2(0, 190)         # sandstone cliff chapel (facade faces spawn, -Z)
+const CARVED_TOMB := Vector2(-240, -70)   # Nabataean-style rock-cut tomb (facade faces +X)
+const WIND_ARCH := Vector2(245, 75)       # natural sandstone arch, opening along Z
+const RAILWAY := Vector2(90, -255)        # old station; the line runs east-west
+const BEDOUIN_CAMP := Vector2(205, 230)
 ## [centre, flatten radius, ground height]
 const SITES := [
 	[RUINS, 85.0, 4.0],
@@ -28,6 +32,10 @@ const SITES := [
 	[LONE_ARCH, 40.0, 2.0],
 	[SCALLOP_GATE, 40.0, 3.0],
 	[CHAPEL, 75.0, 3.0],
+	[CARVED_TOMB, 55.0, 3.0],
+	[WIND_ARCH, 45.0, 2.5],
+	[RAILWAY, 60.0, 2.5],
+	[BEDOUIN_CAMP, 45.0, 3.0],
 ]
 
 var _ridge := FastNoiseLite.new()
