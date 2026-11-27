@@ -14,15 +14,9 @@ shader.
 ### Picking a car
 [▶ Watch: picking a car (with sound)](https://github.com/user-attachments/assets/a7d1766b-00b5-49bb-b9de-7ea77a656be4)
 
-### Drifting: chase camera into the cockpit
+### Drifting, chase & camera POVs
 
 [▶ Watch: a long drift, switching from the chase camera to the in-car view (with sound)](https://github.com/user-attachments/assets/cea93bae-c377-4694-8370-57fe3e6a426d)
-
-### Driving from the cockpit
-
-<video src="https://raw.githubusercontent.com/emilyahmad/drifting-simulator/main/demos/web/borderline.mp4" controls width="100%"></video>
-
-[▶ Watch: cruising across the desert in the in-car view (with sound)](https://github.com/user-attachments/assets/9bb87870-f51a-4fea-b3be-fb202acd35de)
 
 ## Features
 
