@@ -1,4 +1,4 @@
-# Riyadh Desert Drift
+# Drifting Simulator: Riyadh Desert Drift
 
 A PS2-style drifting game set in the dunes outside Riyadh at sunset. Slide a white desert
 jeep (or one of 13 other cars) across the sand, link long drifts for points, and explore the
@@ -20,15 +20,15 @@ shader.
 
 ### Picking a car
 
-[▶ Watch: picking a car (with sound)](demos/web/pick-a-car.mp4)
+[▶ Watch: picking a car (with sound)]([demos/web/pick-a-car.mp4](https://github.com/emilyahmad/drifting-simulator/blob/main/demos/web/pick-a-car.mp4))
 
 ### Drifting: chase camera into the cockpit
 
-[▶ Watch: a long drift, switching from the chase camera to the in-car view (with sound)](demos/web/nancy2.mp4)
+[▶ Watch: a long drift, switching from the chase camera to the in-car view (with sound)]([demos/web/nancy2.mp4](https://github.com/emilyahmad/drifting-simulator/blob/main/demos/web/nancy2.mp4))
 
 ### Driving from the cockpit
 
-[▶ Watch: cruising across the desert in the in-car view (with sound)](demos/web/borderline.mp4)
+[▶ Watch: cruising across the desert in the in-car view (with sound)]([demos/web/borderline.mp4](https://github.com/emilyahmad/drifting-simulator/blob/main/demos/web/borderline.mp4))
 
 ## Features
 
